@@ -250,23 +250,27 @@ Public Class GHRUN_Main
     '===========================
     Public Function GetHitTestResult(p As Point) As UInteger
 
-        Dim left As Boolean = p.X < BORDER_WIDTH
-        Dim right As Boolean = p.X > Me.Width - BORDER_WIDTH
-        Dim top As Boolean = p.Y < BORDER_WIDTH
-        Dim bottom As Boolean = p.Y > Me.Height - BORDER_WIDTH
+        Const BORDER As Integer = 14
+        Const CORNER As Integer = 18
 
-        Select Case True
-            Case left And top : Return HT_TOPLEFT
-            Case left And bottom : Return HT_BOTTOMLEFT
-            Case right And top : Return HT_TOPRIGHT
-            Case right And bottom : Return HT_BOTTOMRIGHT
-            Case left : Return HT_LEFT
-            Case right : Return HT_RIGHT
-            Case top : Return HT_TOP
-            Case bottom : Return HT_BOTTOM
-            Case Else : Return HT_CAPTION
-        End Select
+        Dim left As Boolean = p.X >= 0 AndAlso p.X <= BORDER
+        Dim right As Boolean = p.X >= Me.Width - BORDER AndAlso p.X <= Me.Width
+        Dim top As Boolean = p.Y >= 0 AndAlso p.Y <= BORDER
+        Dim bottom As Boolean = p.Y >= Me.Height - BORDER AndAlso p.Y <= Me.Height
 
+        ' ★ 角の判定を優先（幅広め）
+        If p.X <= CORNER AndAlso p.Y <= CORNER Then Return HT_TOPLEFT
+        If p.X >= Me.Width - CORNER AndAlso p.Y <= CORNER Then Return HT_TOPRIGHT
+        If p.X <= CORNER AndAlso p.Y >= Me.Height - CORNER Then Return HT_BOTTOMLEFT
+        If p.X >= Me.Width - CORNER AndAlso p.Y >= Me.Height - CORNER Then Return HT_BOTTOMRIGHT
+
+        ' ★ 境界線判定（矩形領域）
+        If left Then Return HT_LEFT
+        If right Then Return HT_RIGHT
+        If top Then Return HT_TOP
+        If bottom Then Return HT_BOTTOM
+
+        Return HT_CAPTION
     End Function
 
     '===========================
@@ -367,4 +371,28 @@ Public Class GHRUN_Main
         End Get
     End Property
 
+
+    Protected Overrides Sub OnPaint(e As PaintEventArgs)
+
+        MyBase.OnPaint(e)
+
+        Dim g As Graphics = e.Graphics
+        Dim borderColor As Color = Color.FromArgb(80, 80, 80) ' 薄いグレー
+        Dim resizeColor As Color = Color.FromArgb(120, 120, 120)
+
+        Dim pen As New Pen(borderColor, 2)
+
+        ' ★ 通常時の境界線
+        g.DrawLine(pen, 0, 0, Me.Width, 0) ' 上
+        g.DrawLine(pen, 0, Me.Height - 1, Me.Width, Me.Height - 1) ' 下
+        g.DrawLine(pen, 0, 0, 0, Me.Height) ' 左
+        g.DrawLine(pen, Me.Width - 1, 0, Me.Width - 1, Me.Height) ' 右
+
+        ' ★ 角を少し強調
+        Dim cornerPen As New Pen(resizeColor, 3)
+        g.DrawRectangle(cornerPen, 0, 0, 20, 20)
+        g.DrawRectangle(cornerPen, Me.Width - 20, 0, 20, 20)
+        g.DrawRectangle(cornerPen, 0, Me.Height - 20, 20, 20)
+        g.DrawRectangle(cornerPen, Me.Width - 20, Me.Height - 20, 20, 20)
+    End Sub
 End Class

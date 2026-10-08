@@ -33,11 +33,27 @@ Public Class TitleBarController
     Private minWidth As Integer = 0
     Private animationStep As Integer = 10
 
+
+
+    Private resizing As Boolean = False
+    Private lastCursor As Cursor = Cursors.Default
+
+
     Public Sub New(form As GHRUN_Main)
         Me.mainForm = form
 
         animationTimer.Interval = 10
         AddHandler animationTimer.Tick, AddressOf AnimationTimer_Tick
+
+        AddHandler lblTitle.MouseDoubleClick, AddressOf TitleBar_DoubleClick
+        AddHandler lblYM.MouseDoubleClick, AddressOf TitleBar_DoubleClick
+        AddHandler lblLock.MouseDoubleClick, AddressOf TitleBar_DoubleClick
+        AddHandler lblUser.MouseDoubleClick, AddressOf TitleBar_DoubleClick
+
+#If DEBUG_DEV Then
+        AddHandler lblSystemDate.MouseDoubleClick, AddressOf TitleBar_DoubleClick
+#End If
+
     End Sub
 
     Public ReadOnly Property TitlePanel As Panel
@@ -50,6 +66,7 @@ Public Class TitleBarController
         AddTitleButton()
         AddMouseEventHandler()
         TitleLayoutRefresh()
+        AddHandler pnlTitle.MouseDoubleClick, AddressOf TitleBar_DoubleClick
     End Sub
 
     Private Sub AddTitleButton()
@@ -226,64 +243,167 @@ Public Class TitleBarController
         End If
     End Sub
 
+    '    Private Sub AddMouseEventHandler()
+    '        Dim pnlMenu = mainForm.SideMenuPanel
+
+    '        AddHandler pnlMenu.MouseDown, AddressOf AllControls_MouseDown
+    '        AddHandler pnlMenu.MouseMove, AddressOf AllControls_MouseMove
+
+    '        AddHandler pnlTitle.MouseDown, AddressOf AllControls_MouseDown
+    '        AddHandler pnlTitle.MouseMove, AddressOf AllControls_MouseMove
+
+    '        AddHandler lblTitle.MouseDown, AddressOf AllControls_MouseDown
+    '        AddHandler lblYM.MouseDown, AddressOf AllControls_MouseDown
+    '        AddHandler lblLock.MouseDown, AddressOf AllControls_MouseDown
+    '        AddHandler lblUser.MouseDown, AddressOf AllControls_MouseDown
+
+    '#If DEBUG_DEV Then
+    '        AddHandler lblSystemDate.MouseDown, AddressOf AllControls_MouseDown
+    '#End If
+
+    '        For Each ctrl As Control In mainForm.Controls
+    '            If TypeOf ctrl Is System.Windows.Forms.MdiClient Then
+    '                AddHandler ctrl.MouseDown, AddressOf AllControls_MouseDown
+    '                AddHandler ctrl.MouseMove, AddressOf AllControls_MouseMove
+    '                Exit For
+    '            End If
+    '        Next
+    '    End Sub
+
+
     Private Sub AddMouseEventHandler()
-        Dim pnlMenu = mainForm.SideMenuPanel
 
-        AddHandler pnlMenu.MouseDown, AddressOf AllControls_MouseDown
-        AddHandler pnlMenu.MouseMove, AddressOf AllControls_MouseMove
-
-        AddHandler pnlTitle.MouseDown, AddressOf AllControls_MouseDown
-        AddHandler pnlTitle.MouseMove, AddressOf AllControls_MouseMove
-
-        AddHandler lblTitle.MouseDown, AddressOf AllControls_MouseDown
-        AddHandler lblYM.MouseDown, AddressOf AllControls_MouseDown
-        AddHandler lblLock.MouseDown, AddressOf AllControls_MouseDown
-        AddHandler lblUser.MouseDown, AddressOf AllControls_MouseDown
+        Dim ctrls() As Control = {
+        pnlTitle,
+        lblTitle,
+        lblYM,
+        lblLock,
+        lblUser
+    }
 
 #If DEBUG_DEV Then
-        AddHandler lblSystemDate.MouseDown, AddressOf AllControls_MouseDown
+    ctrls = ctrls.Concat(New Control() {lblSystemDate}).ToArray()
 #End If
 
+        For Each c As Control In ctrls
+            AddHandler c.MouseDown, AddressOf AllControls_MouseDown
+            AddHandler c.MouseMove, AddressOf AllControls_MouseMove
+            AddHandler c.MouseUp, AddressOf AllControls_MouseUp
+        Next
+
+        ' ★ MDI クライアントにもドラッグを付与
         For Each ctrl As Control In mainForm.Controls
-            If TypeOf ctrl Is System.Windows.Forms.MdiClient Then
+            If TypeOf ctrl Is MdiClient Then
                 AddHandler ctrl.MouseDown, AddressOf AllControls_MouseDown
                 AddHandler ctrl.MouseMove, AddressOf AllControls_MouseMove
-                Exit For
+                AddHandler ctrl.MouseUp, AddressOf AllControls_MouseUp
             End If
         Next
     End Sub
 
+    'Private Sub AllControls_MouseDown(sender As Object, e As MouseEventArgs)
+    '    If e.Button = MouseButtons.Left Then
+    '        Dim screenPoint As Point = CType(sender, Control).PointToScreen(e.Location)
+    '        Dim formPoint As Point = mainForm.PointToClient(screenPoint)
+    '        Dim resizeDir As UInteger = mainForm.GetHitTestResult(formPoint)
+    '        GHRUN_Main.ReleaseCapture()
+    '        GHRUN_Main.SendMessage(mainForm.Handle, GHRUN_Main.WM_NCLBUTTONDOWN, CType(resizeDir, IntPtr), IntPtr.Zero)
+    '    End If
+    'End Sub
+
+    'Private Sub AllControls_MouseMove(sender As Object, e As MouseEventArgs)
+
+    '    If e.Button = MouseButtons.Left Then Return
+
+    '    Dim screenPoint As Point = CType(sender, Control).PointToScreen(e.Location)
+    '    Dim formPoint As Point = mainForm.PointToClient(screenPoint)
+    '    Dim resizeDir As UInteger = mainForm.GetHitTestResult(formPoint)
+
+    '    Dim newCursor As Cursor = Cursors.Default
+
+    '    Select Case resizeDir
+    '        Case GHRUN_Main.HT_LEFT, GHRUN_Main.HT_RIGHT
+    '            newCursor = Cursors.SizeWE
+    '        Case GHRUN_Main.HT_TOP, GHRUN_Main.HT_BOTTOM
+    '            newCursor = Cursors.SizeNS
+    '        Case GHRUN_Main.HT_TOPLEFT, GHRUN_Main.HT_BOTTOMRIGHT
+    '            newCursor = Cursors.SizeNWSE
+    '        Case GHRUN_Main.HT_TOPRIGHT, GHRUN_Main.HT_BOTTOMLEFT
+    '            newCursor = Cursors.SizeNESW
+    '        Case Else
+    '            newCursor = Cursors.Default
+    '    End Select
+
+    '    ' ★ カーソルが変わった時だけ変更する（ちらつき防止）
+    '    If lastCursor IsNot newCursor Then
+    '        mainForm.Cursor = newCursor
+    '        lastCursor = newCursor
+    '    End If
+    'End Sub
+    Private resizing As Boolean = False
+    Private lastCursor As Cursor = Cursors.Default
     Private Sub AllControls_MouseDown(sender As Object, e As MouseEventArgs)
-        If e.Button = MouseButtons.Left Then
-            Dim screenPoint As Point = CType(sender, Control).PointToScreen(e.Location)
-            Dim formPoint As Point = mainForm.PointToClient(screenPoint)
-            Dim resizeDir As UInteger = mainForm.GetHitTestResult(formPoint)
-            GHRUN_Main.ReleaseCapture()
-            GHRUN_Main.SendMessage(mainForm.Handle, GHRUN_Main.WM_NCLBUTTONDOWN, CType(resizeDir, IntPtr), IntPtr.Zero)
-        End If
+
+        If e.Button <> MouseButtons.Left Then Return
+
+        resizing = True
+
+        Dim screenPoint As Point = CType(sender, Control).PointToScreen(e.Location)
+        Dim formPoint As Point = mainForm.PointToClient(screenPoint)
+        Dim resizeDir As UInteger = mainForm.GetHitTestResult(formPoint)
+
+        GHRUN_Main.ReleaseCapture()
+        GHRUN_Main.SendMessage(mainForm.Handle, GHRUN_Main.WM_NCLBUTTONDOWN, CType(resizeDir, IntPtr), IntPtr.Zero)
     End Sub
 
     Private Sub AllControls_MouseMove(sender As Object, e As MouseEventArgs)
-        If e.Button = MouseButtons.Left Then
-            Exit Sub
+
+        If resizing Then
+            ' ★ リサイズ中はカーソル固定（ちらつき防止）
+            mainForm.Cursor = lastCursor
+            Return
         End If
 
         Dim screenPoint As Point = CType(sender, Control).PointToScreen(e.Location)
         Dim formPoint As Point = mainForm.PointToClient(screenPoint)
         Dim resizeDir As UInteger = mainForm.GetHitTestResult(formPoint)
 
+        Dim newCursor As Cursor = Cursors.Default
+
         Select Case resizeDir
             Case GHRUN_Main.HT_LEFT, GHRUN_Main.HT_RIGHT
-                mainForm.Cursor = Cursors.SizeWE
+                newCursor = Cursors.SizeWE
             Case GHRUN_Main.HT_TOP, GHRUN_Main.HT_BOTTOM
-                mainForm.Cursor = Cursors.SizeNS
+                newCursor = Cursors.SizeNS
             Case GHRUN_Main.HT_TOPLEFT, GHRUN_Main.HT_BOTTOMRIGHT
-                mainForm.Cursor = Cursors.SizeNWSE
+                newCursor = Cursors.SizeNWSE
             Case GHRUN_Main.HT_TOPRIGHT, GHRUN_Main.HT_BOTTOMLEFT
-                mainForm.Cursor = Cursors.SizeNESW
-            Case Else
-                mainForm.Cursor = Cursors.Default
+                newCursor = Cursors.SizeNESW
         End Select
+
+        If lastCursor IsNot newCursor Then
+            mainForm.Cursor = newCursor
+            lastCursor = newCursor
+        End If
     End Sub
+
+    Private Sub AllControls_MouseUp(sender As Object, e As MouseEventArgs)
+        resizing = False
+    End Sub
+
+    Private Sub MaximizeWindow(sender As Object, e As EventArgs)
+        If mainForm.WindowState = FormWindowState.Maximized Then
+            mainForm.WindowState = FormWindowState.Normal
+            mainForm.Location = ScreenUtil.ScreenWorkAreaLocation(mainForm)
+            mainForm.Size = ScreenUtil.ScreenWorkAreaSize(mainForm)
+        Else
+            mainForm.WindowState = FormWindowState.Maximized
+        End If
+    End Sub
+
+    Private Sub TitleBar_DoubleClick(sender As Object, e As EventArgs)
+        MaximizeWindow(sender, e)
+    End Sub
+
 
 End Class
